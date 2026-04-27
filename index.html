@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>BASE 成績管理</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root {
+    --bg: #f5f4f0;
+    --surface: #ffffff;
+    --surface2: #f0efe9;
+    --border: rgba(0,0,0,0.1);
+    --border2: rgba(0,0,0,0.18);
+    --text: #1a1a18;
+    --text2: #6b6b67;
+    --text3: #a0a09b;
+    --success: #16a34a;
+    --danger: #dc2626;
+    --blue-bg: #eff6ff;
+    --blue-text: #1e40af;
+    --teal-bg: #f0fdfa;
+    --teal-text: #115e59;
+    --amber-bg: #fffbeb;
+    --amber-text: #92400e;
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { font-family: 'Hiragino Sans','Noto Sans JP',sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding-bottom: 80px; }
+
+  /* ── SETUP SCREEN ── */
+  #setup-screen {
+    min-height: 100vh;
+    padding: 32px 20px;
+    display: flex;
+    flex-direction: column;
+  }
+  .setup-hero { margin-bottom: 28px; }
+  .setup-hero h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 6px; }
+  .setup-hero p { font-size: 14px; color: var(--text2); line-height: 1.6; }
+  .step-card {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 18px;
+    margin-bottom: 12px;
+  }
+  .step-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: var(--text);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    margin-bottom: 10px;
+  }
+  .step-title { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+  .step-desc { font-size: 13px; color: var(--text2); line-height: 1.65; margin-bottom: 10px; }
+  .step-link {
+    display: inline-block;
+    font-size: 13px;
+    font-weight: 600;
+    color: #2563eb;
+    text-decoration: none;
+    padding: 8px 14px;
+    background: #eff6ff;
+    border-radius: var(--radius-sm);
+  }
+  .config-area {
+    background: var(--surface2);
+    border-radius: var(--radius-sm);
+    padding: 14px;
+    margin-top: 10px;
+  }
+  .config-area label { display: block; font-size: 12px; font-weight: 600; color: var(--text3); margin-bottom: 6px; }
+  .config-area input {
+    width: 100%;
+    padding: 10px 12px;
+    font-size: 13px;
+    font-family: monospace;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border2);
+    background: var(--surface);
+    color: var(--text);
+    outline: none;
+  }
+  .config-area input:focus { border-color: var(--text); }
+  .config-row { margin-bottom: 10px; }
+  .config-row:last-child { margin-bottom: 0; }
+  .start-btn {
+    width: 100%;
+    padding: 15px;
+    font-size: 16px;
+    font-weight: 700;
+    font-family: inherit;
+    border-radius: var(--radius-sm);
+    border: none;
+    background: var(--text);
+    color: #fff;
+    cursor: pointer;
+    margin-top: 4px;
+    transition: opacity .15s;
+  }
+  .start-btn:active { opacity: .8; }
+  .setup-msg { font-size: 13px; text-align: center; margin-top: 10px; min-height: 18px; }
+  .setup-msg.err { color: var(--danger); }
+
+  /* ── MAIN APP ── */
+  #app-screen { display: none; }
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 20px 10px;
+    position: sticky; top: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  header h1 { font-size: 17px; font-weight: 700; letter-spacing: -0.3px; }
+  .sync-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #d1d5db;
+    transition: background .3s;
+  }
+  .sync-dot.ok { background: var(--success); }
+  .sync-dot.err { background: var(--danger); }
+  .tab-bar {
+    display: flex;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 53px; z-index: 99;
+  }
+  .tab {
+    flex: 1;
+    padding: 11px 4px 9px;
+    font-size: 13px; font-weight: 500;
+    color: var(--text3);
+    background: none; border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    cursor: pointer;
+    transition: color .15s, border-color .15s;
+  }
+  .tab.active { color: var(--text); border-bottom-color: var(--text); }
+  .panel { display: none; padding: 16px; }
+  .panel.active { display: block; }
+  .card { background: var(--surface); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; }
+  .card-title { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--text3); margin-bottom: 14px; }
+  .form-row { margin-bottom: 12px; }
+  label { display: block; font-size: 13px; font-weight: 500; color: var(--text2); margin-bottom: 5px; }
+  select, input[type=text], input[type=number], input[type=month] {
+    width: 100%; padding: 11px 14px; font-size: 15px; font-family: inherit;
+    border-radius: var(--radius-sm); border: 1px solid var(--border2);
+    background: var(--surface2); color: var(--text);
+    appearance: none; -webkit-appearance: none; outline: none;
+    transition: border-color .15s, background .15s;
+  }
+  select:focus, input:focus { border-color: var(--text); background: var(--surface); }
+  .select-wrap { position: relative; }
+  .select-wrap::after {
+    content: '';
+    position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+    width: 0; height: 0;
+    border-left: 5px solid transparent; border-right: 5px solid transparent;
+    border-top: 6px solid var(--text2);
+    pointer-events: none;
+  }
+  .btn {
+    width: 100%; padding: 13px; font-size: 15px; font-weight: 600; font-family: inherit;
+    border-radius: var(--radius-sm); border: none; cursor: pointer;
+    transition: opacity .15s, transform .1s; text-align: center;
+  }
+  .btn:active { transform: scale(0.98); opacity: .85; }
+  .btn-primary { background: var(--text); color: #fff; }
+  .btn-sm { width: auto; padding: 9px 16px; font-size: 13px; }
+  .btn-danger-text { background: none; border: none; color: var(--danger); font-size: 13px; font-family: inherit; cursor: pointer; padding: 6px 10px; }
+  .msg { font-size: 13px; text-align: center; min-height: 20px; margin-top: 10px; font-weight: 500; }
+  .msg-ok { color: var(--success); } .msg-err { color: var(--danger); }
+  .metric-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; margin-bottom: 14px; }
+  .metric-card { background: var(--surface2); border-radius: var(--radius-sm); padding: 14px 12px; }
+  .metric-label { font-size: 11px; color: var(--text3); font-weight: 500; margin-bottom: 5px; }
+  .metric-value { font-size: 26px; font-weight: 700; color: var(--text); line-height: 1; letter-spacing: -1px; }
+  .metric-sub { font-size: 11px; color: var(--text3); margin-top: 3px; }
+  .section-label { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--text3); margin-bottom: 10px; }
+  .chart-wrap { position: relative; width: 100%; margin-bottom: 14px; }
+  .legend-row { display: flex; gap: 14px; margin-bottom: 10px; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text2); }
+  .legend-dot { width: 10px; height: 10px; border-radius: 3px; }
+  .filter-row { display: flex; gap: 8px; margin-bottom: 14px; }
+  .filter-row .select-wrap { flex: 1; }
+  .data-table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+  .data-table th { text-align: left; font-weight: 600; color: var(--text3); font-size: 11px; letter-spacing: .05em; text-transform: uppercase; padding: 0 8px 10px; border-bottom: 1px solid var(--border); }
+  .data-table td { padding: 11px 8px; border-bottom: 1px solid var(--border); color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .data-table tr:last-child td { border-bottom: none; }
+  .rank-num { font-size: 13px; font-weight: 700; color: var(--text3); }
+  .rank-1 { color: #b45309; } .rank-2 { color: #6b7280; } .rank-3 { color: #92400e; }
+  .badge { display: inline-block; font-size: 11px; font-weight: 500; padding: 3px 8px; border-radius: 99px; }
+  .b-h { background: var(--blue-bg); color: var(--blue-text); }
+  .b-k { background: var(--teal-bg); color: var(--teal-text); }
+  .b-t { background: var(--amber-bg); color: var(--amber-text); }
+  .staff-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .staff-item:last-child { border-bottom: none; }
+  .staff-name-text { font-size: 15px; font-weight: 500; }
+  .staff-store-text { margin-top: 3px; }
+  .input-row { display: flex; gap: 8px; }
+  .input-row input { flex: 1; }
+  .empty { text-align: center; color: var(--text3); font-size: 14px; padding: 28px 0; }
+  .loading { text-align: center; color: var(--text3); font-size: 14px; padding: 28px 0; }
+</style>
+</head>
+<body>
+
+<!-- ══════════════ SETUP SCREEN ══════════════ -->
+<div id="setup-screen">
+  <div class="setup-hero">
+    <h1>初回設定</h1>
+    <p>全スタッフでデータを共有するために、Firebaseの設定が必要です。以下の手順に従って設定してください。</p>
+  </div>
+
+  <div class="step-card">
+    <div class="step-num">1</div>
+    <div class="step-title">Firebaseプロジェクトを作る</div>
+    <div class="step-desc">下のリンクを開いて「プロジェクトを追加」をタップ。プロジェクト名は何でもOK（例：base-seiseki）。Googleアナリティクスは「無効」でOK。</div>
+    <a class="step-link" href="https://console.firebase.google.com" target="_blank">Firebase コンソールを開く →</a>
+  </div>
+
+  <div class="step-card">
+    <div class="step-num">2</div>
+    <div class="step-title">Realtime Databaseを作成する</div>
+    <div class="step-desc">左メニューの「構築」→「Realtime Database」→「データベースを作成」をタップ。ロケーションは「asia-southeast1（シンガポール）」を選択。セキュリティルールは「テストモードで開始」を選択して「有効にする」。</div>
+  </div>
+
+  <div class="step-card">
+    <div class="step-num">3</div>
+    <div class="step-title">データベースのURLをコピーする</div>
+    <div class="step-desc">Realtime Databaseのページを開くと、上部に<br>「https://（プロジェクト名）-default-rtdb.asia-southeast1.firebasedatabase.app」<br>というURLが表示されます。これをコピーしてください。</div>
+  </div>
+
+  <div class="step-card">
+    <div class="step-num">4</div>
+    <div class="step-title">URLを貼り付けて開始</div>
+    <div class="step-desc">コピーしたURLを下に貼り付けて「開始する」をタップしてください。</div>
+    <div class="config-area">
+      <div class="config-row">
+        <label>Firebase Realtime Database URL</label>
+        <input type="text" id="cfg-url" placeholder="https://xxx-default-rtdb.asia-southeast1.firebasedatabase.app">
+      </div>
+    </div>
+    <div class="setup-msg" id="setup-msg"></div>
+    <button class="start-btn" onclick="startApp()" style="margin-top:14px">開始する →</button>
+  </div>
+
+  <div class="step-card" style="background:#fffbeb">
+    <div class="step-title" style="font-size:13px;color:#92400e">このファイルをみんなに共有する方法</div>
+    <div class="step-desc" style="color:#92400e;margin-top:4px">設定完了後、このHTMLファイル自体をLINEやAirDropでスタッフ全員に送ってください。全員が同じURLを入力すれば、同じデータベースにアクセスできます。</div>
+  </div>
+</div>
+
+<!-- ══════════════ APP SCREEN ══════════════ -->
+<div id="app-screen">
+  <header>
+    <h1>BASE 成績管理</h1>
+    <div style="display:flex;align-items:center;gap:6px">
+      <span id="sync-label" style="font-size:11px;color:var(--text3)">接続中...</span>
+      <div class="sync-dot" id="sync-dot"></div>
+    </div>
+  </header>
+
+  <div class="tab-bar">
+    <button class="tab active" onclick="switchTab('input')">成績入力</button>
+    <button class="tab" onclick="switchTab('dashboard')">集計</button>
+    <button class="tab" onclick="switchTab('ranking')">ランキング</button>
+    <button class="tab" onclick="switchTab('members')">会員数</button>
+    <button class="tab" onclick="switchTab('staff')">スタッフ</button>
+  </div>
+
+  <!-- 成績入力 -->
+  <div id="panel-input" class="panel active">
+    <div class="card">
+      <div class="form-row">
+        <label>店舗</label>
+        <div class="select-wrap">
+          <select id="inp-store" onchange="updateStaffSelect()">
+            <option>日吉BASE</option>
+            <option>港北BASE</option>
+            <option>十日市場BASE</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <label>スタッフ名</label>
+        <div class="select-wrap">
+          <select id="inp-name"><option value="">— スタッフを選択 —</option></select>
+        </div>
+      </div>
+      <div class="form-row">
+        <label>対象月</label>
+        <input type="month" id="inp-month">
+      </div>
+      <div class="form-row">
+        <label>担当軒数</label>
+        <input type="number" id="inp-contracts" placeholder="例：24" min="0">
+      </div>
+      <div class="form-row" style="margin-bottom:0">
+        <label>担当人数</label>
+        <input type="number" id="inp-customers" placeholder="例：31" min="0">
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="submitEntry()">登録する</button>
+    <p class="msg" id="inp-msg"></p>
+  </div>
+
+  <!-- 集計 -->
+  <div id="panel-dashboard" class="panel">
+    <div class="filter-row">
+      <div class="select-wrap">
+        <select id="dash-month" onchange="renderDashboard()"><option value="">全期間</option></select>
+      </div>
+      <div class="select-wrap">
+        <select id="dash-store" onchange="renderDashboard()">
+          <option value="">全店舗</option>
+          <option>日吉BASE</option><option>港北BASE</option><option>十日市場BASE</option>
+        </select>
+      </div>
+    </div>
+    <div class="metric-grid" id="summary-cards"></div>
+    <div id="tsunagari-section"></div>
+    <div class="card">
+      <div class="section-label">店舗別 担当軒数・人数</div>
+      <div class="legend-row">
+        <div class="legend-item"><div class="legend-dot" style="background:#2563eb"></div>担当軒数</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#0d9488"></div>担当人数</div>
+      </div>
+      <div class="chart-wrap" style="height:200px">
+        <canvas id="storeChart" role="img" aria-label="店舗別担当軒数・人数">店舗別グラフ</canvas>
+      </div>
+      <div class="section-label" style="margin-top:4px">月別推移</div>
+      <div class="chart-wrap" style="height:180px;margin-bottom:0">
+        <canvas id="trendChart" role="img" aria-label="月別推移">月別推移</canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- ランキング -->
+  <div id="panel-ranking" class="panel">
+    <div class="filter-row">
+      <div class="select-wrap">
+        <select id="rank-month" onchange="renderRanking()"><option value="">全期間</option></select>
+      </div>
+      <div class="select-wrap">
+        <select id="rank-by" onchange="renderRanking()">
+          <option value="contracts">担当軒数順</option>
+          <option value="customers">担当人数順</option>
+        </select>
+      </div>
+    </div>
+    <div class="card">
+      <table class="data-table">
+        <thead><tr>
+          <th style="width:30px">#</th>
+          <th>名前</th>
+          <th style="width:100px">店舗</th>
+          <th style="width:42px;text-align:right">軒数</th>
+          <th style="width:42px;text-align:right">人数</th>
+        </tr></thead>
+        <tbody id="ranking-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 会員数 -->
+  <div id="panel-members" class="panel">
+    <div class="card">
+      <div class="card-title">総会員数を登録</div>
+      <div class="form-row">
+        <label>対象月</label>
+        <input type="month" id="mem-month">
+      </div>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:12px">各店舗の総会員数を入力してください</p>
+      <div class="form-row">
+        <label><span class="badge b-h" style="margin-right:6px">日吉BASE</span>総会員数</label>
+        <input type="number" id="mem-hiyoshi" placeholder="例：120" min="0">
+      </div>
+      <div class="form-row">
+        <label><span class="badge b-k" style="margin-right:6px">港北BASE</span>総会員数</label>
+        <input type="number" id="mem-kohoku" placeholder="例：95" min="0">
+      </div>
+      <div class="form-row" style="margin-bottom:0">
+        <label><span class="badge b-t" style="margin-right:6px">十日市場BASE</span>総会員数</label>
+        <input type="number" id="mem-toka" placeholder="例：80" min="0">
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="submitMembers()">登録する</button>
+    <p class="msg" id="mem-msg"></p>
+    <div class="card" style="margin-top:12px">
+      <div class="card-title">登録済み会員数</div>
+      <div id="members-list"><p class="loading">読み込み中...</p></div>
+    </div>
+  </div>
+
+  <!-- スタッフ -->
+  <div id="panel-staff" class="panel">
+    <div class="card" style="background:#f0fdf4;border:1px solid #bbf7d0">
+      <div class="card-title" style="color:#166534">CSVエクスポート</div>
+      <p style="font-size:13px;color:#166534;margin-bottom:12px">成績データとスタッフ一覧を2つのCSVファイルとしてダウンロードします。</p>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-primary btn-sm" style="flex:1;background:#16a34a;border-color:#16a34a" onclick="exportEntriesCSV()">成績データ</button>
+        <button class="btn btn-primary btn-sm" style="flex:1;background:#16a34a;border-color:#16a34a" onclick="exportStaffCSV()">スタッフ一覧</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">スタッフを追加</div>
+      <div class="form-row">
+        <label>店舗</label>
+        <div class="select-wrap">
+          <select id="staff-store">
+            <option>日吉BASE</option><option>港北BASE</option><option>十日市場BASE</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row" style="margin-bottom:0">
+        <label>スタッフ名</label>
+        <div class="input-row">
+          <input type="text" id="staff-name" placeholder="例：田中 太郎">
+          <button class="btn btn-primary btn-sm" onclick="addStaff()">追加</button>
+        </div>
+      </div>
+      <p class="msg" id="staff-msg"></p>
+    </div>
+    <div class="card">
+      <div class="card-title">登録スタッフ一覧</div>
+      <div id="staff-list"><p class="loading">読み込み中...</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- Firebase SDK -->
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+  import { getDatabase, ref, set, push, remove, onValue } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js';
+
+  const STORES = ['日吉BASE','港北BASE','十日市場BASE'];
+  const STORE_CLS = {'日吉BASE':'b-h','港北BASE':'b-k','十日市場BASE':'b-t'};
+  const CFG_KEY = 'dlp_firebase_url';
+
+  let db = null;
+  let staffList = [];
+  let data = [];
+  let membersData = [];
+  let sc = null, tc = null;
+
+  // ── SETUP ──
+  window.startApp = function() {
+    const url = document.getElementById('cfg-url').value.trim();
+    if (!url || !url.startsWith('https://')) {
+      showSetupMsg('正しいURLを入力してください', true); return;
+    }
+    localStorage.setItem(CFG_KEY, url);
+    initFirebase(url);
+  };
+
+  function showSetupMsg(txt, err) {
+    const el = document.getElementById('setup-msg');
+    el.textContent = txt;
+    el.className = err ? 'setup-msg err' : 'setup-msg';
+  }
+
+  function initFirebase(url) {
+    try {
+      const app = initializeApp({ databaseURL: url }, 'dlp-app');
+      db = getDatabase(app);
+      document.getElementById('setup-screen').style.display = 'none';
+      document.getElementById('app-screen').style.display = 'block';
+      setSyncStatus('connecting');
+      listenData();
+    } catch(e) {
+      showSetupMsg('接続に失敗しました。URLを確認してください。', true);
+    }
+  }
+
+  function setSyncStatus(s) {
+    const dot = document.getElementById('sync-dot');
+    const label = document.getElementById('sync-label');
+    if (s === 'ok') { dot.className = 'sync-dot ok'; label.textContent = '同期済み'; }
+    else if (s === 'err') { dot.className = 'sync-dot err'; label.textContent = 'オフライン'; }
+    else { dot.className = 'sync-dot'; label.textContent = '接続中...'; }
+  }
+
+  function listenData() {
+    // スタッフ
+    onValue(ref(db, 'staff'), snap => {
+      staffList = [];
+      snap.forEach(child => {
+        staffList.push({ _key: child.key, ...child.val() });
+      });
+      updateStaffSelect();
+      renderStaffList();
+      setSyncStatus('ok');
+    }, () => setSyncStatus('err'));
+
+    // 成績データ
+    onValue(ref(db, 'entries'), snap => {
+      data = [];
+      snap.forEach(child => {
+        data.push({ _key: child.key, ...child.val() });
+      });
+      populateMonthSelects();
+      const activeTab = document.querySelector('.tab.active');
+      if (activeTab) {
+        const idx = [...document.querySelectorAll('.tab')].indexOf(activeTab);
+        const ids = ['input','dashboard','ranking','members','staff'];
+        if (ids[idx] === 'dashboard') renderDashboard();
+        if (ids[idx] === 'ranking') renderRanking();
+      }
+      setSyncStatus('ok');
+    }, () => setSyncStatus('err'));
+
+    // 会員数データ
+    onValue(ref(db, 'members'), snap => {
+      membersData = [];
+      snap.forEach(child => {
+        membersData.push({ _key: child.key, ...child.val() });
+      });
+      const activeTab = document.querySelector('.tab.active');
+      if (activeTab) {
+        const idx = [...document.querySelectorAll('.tab')].indexOf(activeTab);
+        const ids = ['input','dashboard','ranking','members','staff'];
+        if (ids[idx] === 'dashboard') renderDashboard();
+        if (ids[idx] === 'members') renderMembersList();
+      }
+    }, () => {});
+
+  }
+
+  // ── MEMBERS ──
+  window.submitMembers = async function() {
+    const month = document.getElementById('mem-month').value;
+    if (!month) { showMsg('mem-msg','対象月を入力してください',false); return; }
+    const hiyoshi = parseInt(document.getElementById('mem-hiyoshi').value) || 0;
+    const kohoku  = parseInt(document.getElementById('mem-kohoku').value)  || 0;
+    const toka    = parseInt(document.getElementById('mem-toka').value)    || 0;
+    const existing = membersData.find(m => m.month === month);
+    const val = { month, hiyoshi, kohoku, toka };
+    try {
+      if (existing) {
+        await set(ref(db, 'members/' + existing._key), val);
+      } else {
+        await push(ref(db, 'members'), val);
+      }
+      showMsg('mem-msg','登録しました',true);
+    } catch(e) { showMsg('mem-msg','エラーが発生しました',false); }
+  };
+
+  window.renderMembersList = function() {
+    const el = document.getElementById('members-list');
+    if (!membersData.length) { el.innerHTML = '<p class="empty">データなし</p>'; return; }
+    const sorted = [...membersData].sort((a,b) => b.month.localeCompare(a.month));
+    el.innerHTML = `
+      <table class="data-table">
+        <thead><tr>
+          <th>月</th>
+          <th style="text-align:right">日吉</th>
+          <th style="text-align:right">港北</th>
+          <th style="text-align:right">十日市場</th>
+        </tr></thead>
+        <tbody>
+          ${sorted.map(m => `
+            <tr>
+              <td>${m.month.replace('-','年')}月</td>
+              <td style="text-align:right">${(m.hiyoshi||0).toLocaleString()}</td>
+              <td style="text-align:right">${(m.kohoku||0).toLocaleString()}</td>
+              <td style="text-align:right">${(m.toka||0).toLocaleString()}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>`;
+  };
+
+  // ── STAFF ──
+  window.updateStaffSelect = function() {
+    const store = document.getElementById('inp-store').value;
+    const sel = document.getElementById('inp-name');
+    const cur = sel.value;
+    const list = staffList.filter(s => s.store === store).map(s => s.name).sort();
+    sel.innerHTML = '<option value="">— スタッフを選択 —</option>' +
+      list.map(n => `<option value="${n}">${n}</option>`).join('');
+    if (list.includes(cur)) sel.value = cur;
+  };
+
+  window.addStaff = async function() {
+    const name = document.getElementById('staff-name').value.trim();
+    const store = document.getElementById('staff-store').value;
+    if (!name) { showMsg('staff-msg','名前を入力してください',false); return; }
+    if (staffList.find(s => s.name === name && s.store === store)) {
+      showMsg('staff-msg','すでに登録されています',false); return;
+    }
+    try {
+      await push(ref(db, 'staff'), { name, store });
+      document.getElementById('staff-name').value = '';
+      showMsg('staff-msg', `${name}（${store}）を追加しました`, true);
+    } catch(e) { showMsg('staff-msg','エラーが発生しました',false); }
+  };
+
+  window.removeStaff = async function(key, name) {
+    if (!confirm(`${name}を削除しますか？`)) return;
+    try { await remove(ref(db, 'staff/' + key)); }
+    catch(e) { alert('削除に失敗しました'); }
+  };
+
+  window.renderStaffList = function() {
+    const el = document.getElementById('staff-list');
+    if (!staffList.length) { el.innerHTML = '<p class="empty">登録スタッフなし</p>'; return; }
+    const sorted = [...staffList].sort((a,b) =>
+      a.store.localeCompare(b.store,'ja') || a.name.localeCompare(b.name,'ja'));
+    el.innerHTML = sorted.map(s => `
+      <div class="staff-item">
+        <div>
+          <div class="staff-name-text">${s.name}</div>
+          <div class="staff-store-text"><span class="badge ${STORE_CLS[s.store]||'b-h'}">${s.store}</span></div>
+        </div>
+        <button class="btn-danger-text" onclick="removeStaff('${s._key}','${s.name.replace(/'/g,"\\'")}')">削除</button>
+      </div>`).join('');
+  };
+
+  // ── ENTRIES ──
+  window.submitEntry = async function() {
+    const store = document.getElementById('inp-store').value;
+    const name = document.getElementById('inp-name').value;
+    const month = document.getElementById('inp-month').value;
+    const contracts = parseInt(document.getElementById('inp-contracts').value) || 0;
+    const customers = parseInt(document.getElementById('inp-customers').value) || 0;
+    if (!name) { showMsg('inp-msg','スタッフを選択してください',false); return; }
+    if (!month) { showMsg('inp-msg','対象月を入力してください',false); return; }
+
+    // 同月同スタッフの既存データを上書き
+    const existing = data.find(d => d.name === name && d.store === store && d.month === month);
+    try {
+      if (existing) {
+        await set(ref(db, 'entries/' + existing._key), { name, store, month, contracts, customers });
+      } else {
+        await push(ref(db, 'entries'), { name, store, month, contracts, customers });
+      }
+      showMsg('inp-msg','登録しました',true);
+      document.getElementById('inp-contracts').value = '';
+      document.getElementById('inp-customers').value = '';
+    } catch(e) { showMsg('inp-msg','エラーが発生しました',false); }
+  };
+
+  // ── DASHBOARD ──
+  window.renderDashboard = function() {
+    const month = document.getElementById('dash-month').value;
+    const store = document.getElementById('dash-store').value;
+    const fd = data.filter(d => (!month || d.month === month) && (!store || d.store === store));
+
+    const totC = fd.reduce((s,d) => s+d.contracts, 0);
+    const totP = fd.reduce((s,d) => s+d.customers, 0);
+    const staffN = new Set(fd.map(d => d.name)).size;
+    const avgC = staffN ? Math.round(totC/staffN) : 0;
+
+    document.getElementById('summary-cards').innerHTML = `
+      <div class="metric-card"><div class="metric-label">総担当軒数</div><div class="metric-value">${totC.toLocaleString()}</div><div class="metric-sub">件</div></div>
+      <div class="metric-card"><div class="metric-label">総担当人数</div><div class="metric-value">${totP.toLocaleString()}</div><div class="metric-sub">名</div></div>
+      <div class="metric-card"><div class="metric-label">スタッフ数</div><div class="metric-value">${staffN}</div><div class="metric-sub">名</div></div>
+      <div class="metric-card"><div class="metric-label">1人平均軒数</div><div class="metric-value">${avgC}</div><div class="metric-sub">件</div></div>`;
+
+    // つながり率セクション
+    const STORE_KEYS = {'日吉BASE':'hiyoshi','港北BASE':'kohoku','十日市場BASE':'toka'};
+    const targetStores = store ? [store] : STORES;
+    let tsunagariHTML = '';
+    if (month && membersData.length) {
+      const memRow = membersData.find(m => m.month === month);
+      if (memRow) {
+        const cards = targetStores.map(s => {
+          const key = STORE_KEYS[s];
+          const totalMembers = memRow[key] || 0;
+          const storeContracts = fd.filter(d => d.store === s).reduce((a,d) => a+d.contracts, 0);
+          const rate = totalMembers > 0 ? Math.round(totalMembers / storeContracts * 100) : null;
+          const label = s.replace('BASE','');
+          const cls = STORE_CLS[s];
+          return `
+            <div class="metric-card" style="position:relative">
+              <div class="metric-label"><span class="badge ${cls}" style="font-size:10px">${label}</span></div>
+              <div class="metric-value" style="font-size:22px;margin-top:6px">${rate !== null ? rate+'%' : '—'}</div>
+              <div class="metric-sub">会員${totalMembers.toLocaleString()}名 ÷ 軒数${storeContracts}</div>
+            </div>`;
+        }).join('');
+        tsunagariHTML = `
+          <div style="margin-bottom:8px">
+            <div class="section-label">つながり率（店舗別）</div>
+            <div class="metric-grid">${cards}</div>
+          </div>`;
+      }
+    } else if (!month && membersData.length) {
+      // 全期間：月ごとにまとめて店舗別つながり率を表示
+      const months = [...new Set(data.map(d=>d.month))].sort().reverse().slice(0,3);
+      const rows = months.map(m => {
+        const memRow = membersData.find(mr => mr.month === m);
+        if (!memRow) return '';
+        const cols = targetStores.map(s => {
+          const key = STORE_KEYS[s];
+          const totalMembers = memRow[key] || 0;
+          const storeContracts = data.filter(d => d.store===s && d.month===m).reduce((a,d)=>a+d.contracts,0);
+          const rate = totalMembers > 0 && storeContracts > 0 ? Math.round(totalMembers/storeContracts*100)+'%' : '—';
+          return `<td style="text-align:right;font-weight:500">${rate}</td>`;
+        }).join('');
+        return `<tr><td>${m.replace('-','年')}月</td>${cols}</tr>`;
+      }).filter(Boolean).join('');
+      if (rows) {
+        const ths = targetStores.map(s=>`<th style="text-align:right">${s.replace('BASE','')}</th>`).join('');
+        tsunagariHTML = `
+          <div class="card" style="margin-bottom:12px">
+            <div class="section-label">つながり率（直近3ヶ月）</div>
+            <table class="data-table">
+              <thead><tr><th>月</th>${ths}</tr></thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>`;
+      }
+    }
+    document.getElementById('tsunagari-section').innerHTML = tsunagariHTML;
+
+    const storeC = STORES.map(s => fd.filter(d => d.store===s).reduce((a,d)=>a+d.contracts,0));
+    const storeP = STORES.map(s => fd.filter(d => d.store===s).reduce((a,d)=>a+d.customers,0));
+    const labels = STORES.map(s => s.replace('BASE',''));
+
+    if (sc) sc.destroy();
+    sc = new Chart(document.getElementById('storeChart'), {
+      type:'bar', data:{ labels, datasets:[
+        {label:'担当軒数',data:storeC,backgroundColor:'#2563eb',borderRadius:5},
+        {label:'担当人数',data:storeP,backgroundColor:'#0d9488',borderRadius:5}
+      ]}, options:{ responsive:true, maintainAspectRatio:false,
+        plugins:{legend:{display:false}},
+        scales:{ x:{ticks:{font:{size:12},autoSkip:false},grid:{display:false}}, y:{ticks:{font:{size:11}},grid:{color:'rgba(0,0,0,0.06)'}} }
+      }
+    });
+
+    const months = [...new Set(data.map(d=>d.month))].sort();
+    const trC = months.map(m => data.filter(d=>d.month===m).reduce((a,d)=>a+d.contracts,0));
+    const trP = months.map(m => data.filter(d=>d.month===m).reduce((a,d)=>a+d.customers,0));
+    if (tc) tc.destroy();
+    tc = new Chart(document.getElementById('trendChart'), {
+      type:'line', data:{ labels:months.map(m=>m.replace('-','/')), datasets:[
+        {label:'軒数',data:trC,borderColor:'#2563eb',backgroundColor:'rgba(37,99,235,0.08)',tension:0.3,fill:true,pointRadius:4,pointBackgroundColor:'#2563eb'},
+        {label:'人数',data:trP,borderColor:'#0d9488',backgroundColor:'rgba(13,148,136,0.08)',tension:0.3,fill:true,borderDash:[5,3],pointRadius:4,pointBackgroundColor:'#0d9488'}
+      ]}, options:{ responsive:true, maintainAspectRatio:false,
+        plugins:{legend:{display:false}},
+        scales:{ x:{ticks:{font:{size:11},autoSkip:false},grid:{display:false}}, y:{ticks:{font:{size:11}},grid:{color:'rgba(0,0,0,0.06)'}} }
+      }
+    });
+  };
+
+  // ── RANKING ──
+  window.renderRanking = function() {
+    const month = document.getElementById('rank-month').value;
+    const by = document.getElementById('rank-by').value;
+    const fd = data.filter(d => !month || d.month === month);
+    const aggr = {};
+    fd.forEach(d => {
+      const k = d.name+'|'+d.store;
+      if (!aggr[k]) aggr[k] = {name:d.name,store:d.store,contracts:0,customers:0};
+      aggr[k].contracts += d.contracts; aggr[k].customers += d.customers;
+    });
+    const sorted = Object.values(aggr).sort((a,b) => b[by]-a[by]);
+    const rankCls = ['rank-1','rank-2','rank-3'];
+    document.getElementById('ranking-body').innerHTML = sorted.length
+      ? sorted.map((s,i) => `
+        <tr>
+          <td><span class="rank-num ${rankCls[i]||''}">${i+1}</span></td>
+          <td style="font-weight:${i===0?'600':'400'}">${s.name}</td>
+          <td><span class="badge ${STORE_CLS[s.store]||'b-h'}">${s.store}</span></td>
+          <td style="text-align:right;font-weight:500">${s.contracts}</td>
+          <td style="text-align:right">${s.customers}</td>
+        </tr>`).join('')
+      : '<tr><td colspan="5"><p class="empty">データがありません</p></td></tr>';
+  };
+
+  // ── UTILS ──
+  window.populateMonthSelects = function() {
+    const months = [...new Set(data.map(d=>d.month))].sort();
+    ['dash-month','rank-month'].forEach(id => {
+      const sel = document.getElementById(id);
+      const cur = sel.value;
+      sel.innerHTML = '<option value="">全期間</option>' +
+        months.map(m => `<option value="${m}">${m.replace('-','年')}月`).join('');
+      if (months.includes(cur)) sel.value = cur;
+    });
+  };
+
+  window.showMsg = function(id, text, ok) {
+    const el = document.getElementById(id);
+    el.textContent = text;
+    el.className = 'msg ' + (ok ? 'msg-ok' : 'msg-err');
+    setTimeout(() => { el.textContent = ''; el.className = 'msg'; }, 2500);
+  };
+
+  window.switchTab = function(id) {
+    const ids = ['input','dashboard','ranking','members','staff'];
+    document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', ids[i]===id));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('panel-'+id).classList.add('active');
+    if (id==='dashboard') renderDashboard();
+    if (id==='ranking') renderRanking();
+    if (id==='members') { renderMembersList(); }
+    if (id==='staff') renderStaffList();
+  };
+
+  // ── CSV EXPORT ──
+  function downloadCSV(filename, rows) {
+    const bom = '\uFEFF';
+    const csv = bom + rows.map(r => r.map(cell => {
+      const s = String(cell ?? '');
+      return (s.includes(',') || s.includes('"') || s.includes('\n')) ? `"${s.replace(/"/g,'""')}"` : s;
+    }).join(',')).join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  window.exportEntriesCSV = function() {
+    if (!data.length) { alert('データがありません'); return; }
+    const sorted = [...data].sort((a,b) => a.month.localeCompare(b.month) || a.store.localeCompare(b.store,'ja') || a.name.localeCompare(b.name,'ja'));
+    const rows = [['年月','店舗','スタッフ名','担当軒数','担当人数']];
+    sorted.forEach(d => {
+      const ym = d.month.replace('-','年') + '月';
+      rows.push([ym, d.store, d.name, d.contracts, d.customers]);
+    });
+    const now = new Date();
+    const ts = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
+    downloadCSV(`BASE成績データ_${ts}.csv`, rows);
+  };
+
+  window.exportStaffCSV = function() {
+    if (!staffList.length) { alert('スタッフが登録されていません'); return; }
+    const sorted = [...staffList].sort((a,b) => a.store.localeCompare(b.store,'ja') || a.name.localeCompare(b.name,'ja'));
+    const rows = [['店舗','スタッフ名']];
+    sorted.forEach(s => rows.push([s.store, s.name]));
+    const now = new Date();
+    const ts = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
+    downloadCSV(`BASEスタッフ一覧_${ts}.csv`, rows);
+  };
+
+  // ── INIT ──
+  const savedUrl = localStorage.getItem(CFG_KEY);
+  if (savedUrl) {
+    document.getElementById('cfg-url').value = savedUrl;
+    initFirebase(savedUrl);
+  }
+
+  const now = new Date();
+  document.getElementById('inp-month').value =
+    `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  document.getElementById('mem-month').value =
+    `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+</script>
+</body>
+</html>
